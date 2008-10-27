@@ -1,0 +1,21 @@
+This is a WoW Addon Manager coded in PHP by Eric Boehs.
+
+Installation:
+1. Edit the "config.php.example" and save it as "config.php".
+2. Navigate to the install directory with your web browser.
+3. Remove the install directory.
+4. Add a cronjob to run the dailyUpdater.php everyday.  (This step isn't required, it will just speed up the zip file creation process and clean up the customZips directory, which will get large over time).
+5. Add some addons!
+
+Adding Addons:
+1. Navigate to http://curse.com and find an addon you would like to add.
+2. Mouse over the "Install via curse client" image and get the Addon ID.  For example: the addon QuestHelper has an Addon ID of 4922.
+3. Go to the admin panel and type the Addon ID followed by enter.  Your addon may take a little while to add (depending on the file size).  Be Patient. Once it has downloaded from curse.com to your web server, it will be added and should show in the admin panel.
+
+That's it! Everything else should be pretty intuitive (manually updating, downloading, deleting).
+
+Features:
+-Keeps addons synced with curse.com
+-Creates a custom zip file of all the addons you choose
+-Allows easy adding and removing of addons via a control panel
+-Add addons via a bookmarklet (click a bookmark, click install with curse client) (This is experimental - having an issue in firefox)

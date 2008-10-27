@@ -1,0 +1,18 @@
+<?php
+//config.php - This file is required in every page and is required.
+//It stores the username and passwords for connecting to the database.
+//You should probably make sure the permissions are said to read/write for your user only (chmod 600 config.php).
+
+//Please edit the next 4 variables to reflect the correct settings:
+$dbhost = 'mysql.example.com'; //Sometimes this is localhost
+$dbuser = 'ericboehs'; //The username you use to connect to the above MySQL server
+$dbpass = 'm4c0r0n1!!4ND!!ch33Z3'; //The password required for the above username
+$dbname = 'wow-addons-manager'; //This is the database name
+//That's it you're done.
+
+
+//This intiates the connection and selects the database you set above.
+//You shouldn't have to edit these.
+$conn = mysql_connect($dbhost, $dbuser, $dbpass) or die (mysql_error());
+mysql_select_db($dbname);
+?>
