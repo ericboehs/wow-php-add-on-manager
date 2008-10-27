@@ -40,8 +40,10 @@ function fetchAddonXML($curseAddonID){
   curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
   curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
   $xml = curl_exec($ch);
-  curl_close($ch);
+  curl_close($ch); //Free up resources that curl was using
   file_put_contents($filename, $xml);
+  $xml = substr($xml, 1);
+  //newParseXML($xml);
   return $filename;
   //return $xml;
 }
@@ -212,27 +214,29 @@ function deleteAddon($curseAddonID){
 	return true;
 }
 
-function newParseXML(){
-	$file = "xml_test.xml";
-	function contents($parser, $data){
-	    echo $data;
-	}
-	function startTag($parser, $data){
-	    echo "<b>";
-	}
-	function endTag($parser, $data){
-	    echo "</b><br />";
-	}
-	$xml_parser = xml_parser_create();
-	xml_set_element_handler($xml_parser, "startTag", "endTag");
-	xml_set_character_data_handler($xml_parser, "contents");
-	$fp = fopen($file, "r");
-	$data = fread($fp, 80000);
-	if(!(xml_parse($xml_parser, $data, feof($fp)))){
-	    die("Error on line " . xml_get_current_line_number($xml_parser));
-	}
-	xml_parser_free($xml_parser);
-	fclose($fp);
+function newParseXML($data){
+  global $currentDownloadID;
+  function contents($parser, $data){
+    echo $data."<br />";
+  }
+  function startTag($parser, $tag, $attribs){
+    global $currentDownloadID;
+    if($tag == "FILE"){
+      if (is_array($attribs)) {
+        while(list($key,$val) = each($attribs)) {
+          if($key == "ID") $currentDownloadID = $val;
+        }
+      }
+    }
+  }
+  function endTag($parser, $tag){
+  }
+  $xml_parser = xml_parser_create();
+  xml_set_element_handler($xml_parser, "startTag", "endTag");
+  xml_set_character_data_handler($xml_parser, "contents");
+  if(!(xml_parse($xml_parser, $data))){
+    die("Error on line " . xml_get_current_line_number($xml_parser));
+  }
+  xml_parser_free($xml_parser);
 }
-
 ?>
