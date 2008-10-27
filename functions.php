@@ -1,22 +1,31 @@
 <?php
+
 /*
 TODO:
 -Make a "favorites" zip section
 -Add a cron job for creating those favorites
 -Make it XHTML valid
 -Fix it to die gracefully if curse isn't providing the xml correctly
+-Updated blah, but blah was missing
+-Use the server's tmp directory
 */
 
-/*This function is used to store the Session ID, I got from Curse using a packet sniffer and their
-original curse client.  I've been using this ID for a while and it hasn't expired.  Here's to hoping
-it never will.*/
 function getCurseSessionID(){
+  /*This function is used to store the Session ID, I got from Curse using a packet sniffer and their
+  original curse client.  I've been using this ID for a while and it hasn't expired.  Here's to hoping
+  it never will.*/
 	return "VNIBQDUBUCEUPATP";
 }
-/*This will get the XML file that is associated with the curseAddonID.  It contains everything we need
-including the URL to the addon and the addon's zip files.  Eventually I'd like to make this return the
-contents of the file in XML format, rather than a filename of where it's stored.*/
+
+function fork($shellCmd){
+  $shellCmd = addslashes($shellCmd);
+	exec("nice sh -c \"$shellCmd\" > /dev/null 2>&1 &");
+}
+
 function fetchAddonXML($curseAddonID){
+  /*This will get the XML file that is associated with the curseAddonID.  It contains everything we need
+  including the URL to the addon and the addon's zip files.  Eventually I'd like to make this return the
+  contents of the file in XML format, rather than a filename of where it's stored.*/
   //This registers the $baseURL and $debug variables as global variables so that they can be used inside
   //(or outside) this function.  If I don't make them global, then only what I return is accessable.
   global $baseURL, $debug;
@@ -26,20 +35,27 @@ function fetchAddonXML($curseAddonID){
   //that included this file, not the directory of this file.
   $filename = $baseURL.rand().'.xml';
   //This is what actually get's the xml file and saves it.
-  $xml = shell_exec('wget -q -O '.$filename.' http://addonservice.curse.com/AddOnService.asmx/GetAddOn?pAddOnId='.$curseAddonID.'\&pSession='.$curseSessionID);
+  $ch = curl_init('http://addonservice.curse.com/AddOnService.asmx/GetAddOn?pAddOnId='.$curseAddonID.'&pSession='.$curseSessionID);
+  if (!$ch)	die( "Cannot allocate a new PHP-CURL handle" );
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
+  $xml = curl_exec($ch);
+  curl_close($ch);
+  file_put_contents($filename, $xml);
   return $filename;
-  //$xml = shell_exec('wget -O- http://addonservice.curse.com/AddOnService.asmx/GetAddOn?pAddOnId='.$curseAddonID.'\&pSession='.$curseSessionID);
   //return $xml;
 }
-/*Checks the content length of a file.  Used for ajax progress updates.*/
+
 function getContentLength($url){
+  /*Checks the content length of a file.  Used for ajax progress updates.*/
   $contentLength = shell_exec('curl -s -I '.$url.' | grep Content-Length');
   $contentLength = explode(" ", $contentLength);
   $contentLength = $contentLength[1];
   return $contentLength;
 }
-/*Grabs the ID from the "Install via Curse Client" link using a bookmarklet.*/
+
 function getIdFromURL($url){
+  /*Grabs the ID from the "Install via Curse Client" link using a bookmarklet.*/
   global $message;
   $pieces = explode("=", $url);
   if(count($pieces)!=2 && substr($url,0,4) != "psyn"){
@@ -48,22 +64,20 @@ function getIdFromURL($url){
   }
   return trim($pieces[1]);
 }
-function checkForNullFieldsForAdd(){}
-/*Checks to see if the "InProgress" file exists - used for ajax queries*/
+
 function checkForUpdateCompletion($curseAddonID){
+  /*Checks to see if the "InProgress" file exists - used for ajax queries*/
   global $baseURL;
 	if(file_exists($baseURL.$curseAddonID.'InProgress')) return false;
 	return true;
 }
+
 function checkDownloadProgress($addonName){
   global $baseURL;
   $sizeInBytes = shell_exec('ls -l '.$baseURL.'cachedZips/'.$addonName.'.zip | awk \'{print $5}\'');
   return $sizeInBytes;
 }
-function fork($shellCmd){
-  $shellCmd = addslashes($shellCmd);
-	exec("nice sh -c \"$shellCmd\" > /dev/null 2>&1 &");
-}
+
 function addonExists($curseAddonID){
 	global $debug, $baseURL;
 	require($baseURL.'config.php');
@@ -72,6 +86,7 @@ function addonExists($curseAddonID){
 	if(mysql_num_rows($result)) return true;
 	return false;
 }
+
 function parseXML($xml){
   if(!isset($xml)) return false;
   global $debug, $lastDownloadDateTime, $lastDownloadDateTimeHuman, $addonName, $zipURL, $addonURL, $currentVersion, $currentDownloadID;
@@ -88,13 +103,7 @@ function parseXML($xml){
   unlink($xml);
   return true;
 }
-/*
-function compareVersions($){
-  foreach($addonVersions as $thisAddon){
-    if($thisAddon != $
-  }
-}
-*/
+
 function getVersionsFromZip($userZipLocation, $userExtractLocation){
   global $debug, $baseURL;
   $zipFilename = "AddonPack-".date('Ymd-His');
@@ -127,6 +136,17 @@ function getVersionsFromZip($userZipLocation, $userExtractLocation){
   if($updated) return 'customZips/'.$zipFilename;
   return false;
 }
+
+function md5Addon($addonName){
+  global $debug, $baseURL;
+  $md5Hash = md5_file($baseURL.'cachedZips/'.$addonName.'.zip');
+  $md5Location = $baseURL.'cachedZips/'.$addonName.'.dir/versions/'.$addonName.'.md5';
+  $md5Directory = $baseURL.'cachedZips/'.$addonName.'.dir/versions/';
+  if(!file_exists($md5Directory)) mkdir($md5Directory);
+  file_put_contents($md5Location, $md5Hash);
+  return;
+}
+
 function updateNeeded($curseAddonID){
   global $debug, $baseURL, $lastDownloadDateTime, $lastDownloadDateTimeHuman, $addonName, $ourAddonName, $zipURL, $addonURL, $currentVersion, $currentDownloadID;
   require('config.php');
@@ -146,12 +166,7 @@ function updateNeeded($curseAddonID){
   if(!file_exists($baseURL.'cachedZips/'.$addonName.'.dir/versions/'.$addonName.'.md5')) md5Addon($addonName);
   return false;
 }
-function md5Addon($addonName){
-  global $debug, $baseURL;
-  $md5hash = md5_file($baseURL.'cachedZips/'.$addonName.'.zip');
-  shell_exec('mkdir "'.$baseURL.'cachedZips/'.$addonName.'.dir/versions/" && echo '.$md5hash.' >> "'.$baseURL.'cachedZips/'.$addonName.'.dir/versions/'.$addonName.'.md5"');
-  return;
-}
+
 function updateAddon($curseAddonID){
   global $debug, $baseURL, $lastDownloadDateTime, $lastDownloadDateTimeHuman, $addonName, $zipURL, $addonURL, $currentVersion, $currentDownloadID;
   require('config.php');
@@ -171,6 +186,7 @@ function updateAddon($curseAddonID){
   if(!$result) return false;
   return true;
 }
+
 function deleteAddon($curseAddonID){
 	global $debug, $baseURL, $addonName, $message;
 	if($curseAddonID == null || !is_numeric($curseAddonID)){
@@ -195,6 +211,7 @@ function deleteAddon($curseAddonID){
 	if(!$deleteResult) return false;
 	return true;
 }
+
 function newParseXML(){
 	$file = "xml_test.xml";
 	function contents($parser, $data){
@@ -217,4 +234,5 @@ function newParseXML(){
 	xml_parser_free($xml_parser);
 	fclose($fp);
 }
+
 ?>
