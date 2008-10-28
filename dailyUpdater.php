@@ -12,12 +12,18 @@ while($row = mysql_fetch_array($result, MYSQL_ASSOC)){
 		$curseAddonID = trim($checkRow['curseAddonID']);
 		$addonName = trim($checkRow['addonName']);
 	}
-	if(updateNeeded($curseAddonID)){
-		if(!updateAddon($curseAddonID)){
-			die(stripslashes($addonName)." could not be updated.");
-		}
-	}
+	updateAddon($curseAddonID);
 }
 //Cleanse the customZips
-shell_exec('find '.$baseURL.'customZips/* -mmin +1440 -exec rm {} \;');
+if ($handle = opendir($baseURL.'customZips/')) {
+  while (false !== ($file = readdir($handle))) {
+    if ($file != "." && $file != "..") {
+      $numOfFiles++;
+    }
+  }
+  closedir($handle);
+}
+if($numOfFiles > 0){
+  shell_exec('find '.$baseURL.'customZips/* -mmin +1440 -exec rm {} \;');
+}
 ?>

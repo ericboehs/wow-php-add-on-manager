@@ -9,6 +9,77 @@ TODO:
 -Updated blah, but blah was missing
 -Use the server's tmp directory
 */
+class ParseXML{
+  function GetChildren($vals, &$i) {
+    $children = array(); // Contains node data
+    if (isset($vals[$i]['value'])){
+      $children['VALUE'] = $vals[$i]['value'];
+    }
+    while (++$i < count($vals)){
+      switch ($vals[$i]['type']){
+        case 'cdata':
+        if (isset($children['VALUE'])){
+          $children['VALUE'] .= $vals[$i]['value'];
+        } else {
+          $children['VALUE'] = $vals[$i]['value'];
+        }
+        break;
+
+        case 'complete':
+        if (isset($vals[$i]['attributes'])) {
+          $children[$vals[$i]['tag']][]['ATTRIBUTES'] = $vals[$i]['attributes'];
+          $index = count($children[$vals[$i]['tag']])-1;
+
+          if (isset($vals[$i]['value'])){
+            $children[$vals[$i]['tag']][$index]['VALUE'] = $vals[$i]['value'];
+          } else {
+            $children[$vals[$i]['tag']][$index]['VALUE'] = '';
+          }
+        } else {
+          if (isset($vals[$i]['value'])){
+            $children[$vals[$i]['tag']][]['VALUE'] = $vals[$i]['value'];
+          } else {
+            $children[$vals[$i]['tag']][]['VALUE'] = '';
+          }
+        }
+        break;
+
+        case 'open':
+        if (isset($vals[$i]['attributes'])) {
+          $children[$vals[$i]['tag']][]['ATTRIBUTES'] = $vals[$i]['attributes'];
+          $index = count($children[$vals[$i]['tag']])-1;
+          $children[$vals[$i]['tag']][$index] = array_merge($children[$vals[$i]['tag']][$index],$this->GetChildren($vals, $i));
+        } else {
+          $children[$vals[$i]['tag']][] = $this->GetChildren($vals, $i);
+        }
+        break;
+
+        case 'close':
+        return $children;
+      }
+    }
+  }
+
+  function GetXMLTree($xmlloc){
+    $data = $xmlloc;
+    $parser = xml_parser_create('ISO-8859-1');
+    xml_parser_set_option($parser, XML_OPTION_SKIP_WHITE, 1);
+    xml_parse_into_struct($parser, $data, $vals, $index);
+    xml_parser_free($parser);
+
+    $tree = array();
+    $i = 0;
+
+    if (isset($vals[$i]['attributes'])) {
+      $tree[$vals[$i]['tag']][]['ATTRIBUTES'] = $vals[$i]['attributes'];
+      $index = count($tree[$vals[$i]['tag']])-1;
+      $tree[$vals[$i]['tag']][$index] =  array_merge($tree[$vals[$i]['tag']][$index], $this->GetChildren($vals, $i));
+    } else {
+      $tree[$vals[$i]['tag']][] = $this->GetChildren($vals, $i);
+    }
+    return $tree;
+  }
+}
 
 function getCurseSessionID(){
   /*This function is used to store the Session ID, I got from Curse using a packet sniffer and their
@@ -30,10 +101,6 @@ function fetchAddonXML($curseAddonID){
   //(or outside) this function.  If I don't make them global, then only what I return is accessable.
   global $baseURL, $debug;
   $curseSessionID = getCurseSessionID();
-  //Create a random file name to store the XML temporarily.  This would be located  up one level if
-  //$baseURL was set to "../" and if it was blank then it would use the current directory of the file
-  //that included this file, not the directory of this file.
-  $filename = $baseURL.rand().'.xml';
   //This is what actually get's the xml file and saves it.
   $ch = curl_init('http://addonservice.curse.com/AddOnService.asmx/GetAddOn?pAddOnId='.$curseAddonID.'&pSession='.$curseSessionID);
   if (!$ch)	die( "Cannot allocate a new PHP-CURL handle" );
@@ -41,11 +108,21 @@ function fetchAddonXML($curseAddonID){
   curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
   $xml = curl_exec($ch);
   curl_close($ch); //Free up resources that curl was using
-  file_put_contents($filename, $xml);
   $xml = substr($xml, 1);
-  //newParseXML($xml);
-  return $filename;
-  //return $xml;
+  return $xml;
+}
+
+function parseXML($data){
+  $ParseXML = new ParseXML();
+  $xmlarray = $ParseXML->GetXMLTree($data);
+  $latestFile = count($xmlarray['PSYN'][0]['PROJECT'][0]['FILES'][0]['FILE'])-1;
+  $addonName = $xmlarray['PSYN'][0]['PROJECT'][0]['NAME'][0]['VALUE'];
+  $addonURL = $xmlarray['PSYN'][0]['PROJECT'][0]['URL'][0]['VALUE'];
+  $currentDownloadID = $xmlarray['PSYN'][0]['PROJECT'][0]['FILES'][0]['FILE'][$latestFile]['ATTRIBUTES']['ID'];
+  $currentVersion = $xmlarray['PSYN'][0]['PROJECT'][0]['FILES'][0]['FILE'][$latestFile]['NAME'][0]['VALUE'];
+  $zipURL = $xmlarray['PSYN'][0]['PROJECT'][0]['FILES'][0]['FILE'][$latestFile]['URL'][0]['VALUE'];
+  $result = array($addonName, $addonURL, $currentDownloadID, $currentVersion, $zipURL);
+  return $result;
 }
 
 function getContentLength($url){
@@ -89,23 +166,6 @@ function addonExists($curseAddonID){
 	return false;
 }
 
-function parseXML($xml){
-  if(!isset($xml)) return false;
-  global $debug, $lastDownloadDateTime, $lastDownloadDateTimeHuman, $addonName, $zipURL, $addonURL, $currentVersion, $currentDownloadID;
-  //$line = explode("<name>",$xml);
-  ///// YOU WERE HERE
-  //die(print_r($line));
-  $lastDownloadDateTime = trim(date('Y-m-d H:i:s'));
-  $lastDownloadDateTimeHuman = trim(date('M j, Y \a\t g:i a'));
-  $addonName = addslashes(trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a -m 1 -A 1 name | tail -1')));
-  $zipURL = trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a -B 2 date | grep zip | tail -1'));
-  $addonURL = trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a -m 1 aspx'));
-  $currentVersion = trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a -A 2 \'file id\' | tail -1'));
-  $currentDownloadID = trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a \'file id\' | tail -1 | awk -F\'"\' \'{print $2}\''));
-  unlink($xml);
-  return true;
-}
-
 function getVersionsFromZip($userZipLocation, $userExtractLocation){
   global $debug, $baseURL;
   $zipFilename = "AddonPack-".date('Ymd-His');
@@ -145,47 +205,55 @@ function md5Addon($addonName){
   $md5Location = $baseURL.'cachedZips/'.$addonName.'.dir/versions/'.$addonName.'.md5';
   $md5Directory = $baseURL.'cachedZips/'.$addonName.'.dir/versions/';
   if(!file_exists($md5Directory)) mkdir($md5Directory);
-  file_put_contents($md5Location, $md5Hash);
+  //file_put_contents($md5Location, $md5Hash);
   return;
 }
 
-function updateNeeded($curseAddonID){
-  global $debug, $baseURL, $lastDownloadDateTime, $lastDownloadDateTimeHuman, $addonName, $ourAddonName, $zipURL, $addonURL, $currentVersion, $currentDownloadID;
+function getDateTime(){
+  $lastDownloadDateTime = trim(date('Y-m-d H:i:s'));
+  $lastDownloadDateTimeHuman = trim(date('M j, Y \a\t g:i a'));
+  return array($lastDownloadDateTime, $lastDownloadDateTimeHuman);
+}
+
+function updateAddon($curseAddonID){
+  global $debug, $baseURL, $currentDateTime, $addonName, $ourAddonName, $zipURL, $addonURL, $currentVersion, $currentDownloadID;
   require('config.php');
-  if(!parseXML(fetchAddonXML($curseAddonID))) return false;
+  $addonInfo = parseXML(fetchAddonXML($curseAddonID));
+  $addonName = $addonInfo[0];
+  $addonURL = $addonInfo[1];
+  $currentDownloadID = $addonInfo[2];
+  $currentVersion = $addonInfo[3];
+  $zipURL = $addonInfo[4];
+  $currentDateTime = getDateTime();
+
   $query = "SELECT lastDownloadID from amz_addonsList WHERE curseAddonID=".$curseAddonID;
   $result = mysql_query($query);
   while($row = mysql_fetch_array($result, MYSQL_ASSOC)){
     $lastDownloadID = trim($row['lastDownloadID']);
   }
-  $query = "UPDATE amz_addonsList SET addonName='$addonName', addonURL='$addonURL', version='$currentVersion', lastUpdateDateTime='$lastDownloadDateTime', lastUpdateDateTimeHuman='$lastDownloadDateTimeHuman' WHERE curseAddonID=$curseAddonID";
+  $query = "UPDATE amz_addonsList SET addonName='$addonName', addonURL='$addonURL', version='$currentVersion', lastUpdateDateTime='$currentDateTime[0]', lastUpdateDateTimeHuman='$currentDateTime[1]' WHERE curseAddonID=$curseAddonID";
   if($debug){ echo $query."<br />"; }
   $updatesult = mysql_query($query);
   if($debug && !$updateResult) die('Invalid query: ' . mysql_error());
-  if($currentDownloadID != $lastDownloadID) return true;
-  if(!file_exists($baseURL.'cachedZips/'.$addonName.'.zip')) return true;
-  if(!file_exists($baseURL.'cachedZips/'.$addonName.'.dir')) fork('unzip -d "'.$baseURL.'cachedZips/'.$addonName.'.dir" "'.$baseURL.'cachedZips/'.$addonName.'.zip"');
-  if(!file_exists($baseURL.'cachedZips/'.$addonName.'.dir/versions/'.$addonName.'.md5')) md5Addon($addonName);
-  return false;
-}
+  if($currentDownloadID != $lastDownloadID) $updatedNeeded = true;
+  if(!file_exists($baseURL.'cachedZips/'.$addonName.'.zip')) $updatedNeeded = true;
+  if(!file_exists($baseURL.'cachedZips/'.$addonName.'.dir') && !$updatedNeeded) fork('unzip -d "'.$baseURL.'cachedZips/'.$addonName.'.dir" "'.$baseURL.'cachedZips/'.$addonName.'.zip"');
+  if(!file_exists($baseURL.'cachedZips/'.$addonName.'.dir/versions/'.$addonName.'.md5') && !$updatedNeeded) md5Addon($addonName);
 
-function updateAddon($curseAddonID){
-  global $debug, $baseURL, $lastDownloadDateTime, $lastDownloadDateTimeHuman, $addonName, $zipURL, $addonURL, $currentVersion, $currentDownloadID;
-  require('config.php');
-  if(!parseXML(fetchAddonXML($curseAddonID))) return false;
+  if(!$updatedNeeded) return false;
+
   $_SESSION['addonName'] = $addonName;
   $_SESSION['curseAddonID'] = $curseAddonID;
   $_SESSION['addonSize'] = getContentLength($zipURL);
   touch($baseURL.$curseAddonID."InProgress");
   fork('wget -O "'.$baseURL.'cachedZips/'.$addonName.'.zip" '.$zipURL.' && rm '.$baseURL.$curseAddonID.'InProgress && rm -rf "'.$baseURL.'cachedZips/'.$addonName.'.dir"; unzip -d "'.$baseURL.'cachedZips/'.$addonName.'.dir" "'.$baseURL.'cachedZips/'.$addonName.'.zip" && md5 "'.$baseURL.'cachedZips/'.$addonName.'.zip" -out "'.$baseURL.'cachedZips/'.$addonName.'.dir/md5checksum.txt"');
   if(addonExists($curseAddonID)){
-  	$query = "UPDATE amz_addonsList SET addonName='$addonName', version='$currentVersion', addonURL='$addonURL', lastDownloadID=$currentDownloadID, lastDownloadDateTime='$lastDownloadDateTime', lastDownloadDateTimeHuman='$lastDownloadDateTimeHuman', lastUpdateDateTime='$lastDownloadDateTime', lastUpdateDateTimeHuman='$lastDownloadDateTimeHuman' WHERE curseAddonID=$curseAddonID";
+  	$query = "UPDATE amz_addonsList SET addonName='$addonName', version='$currentVersion', addonURL='$addonURL', lastDownloadID=$currentDownloadID, lastDownloadDateTime='$currentDateTime[0]', lastDownloadDateTimeHuman='$currentDateTime[1]', lastUpdateDateTime='$currentDateTime[0]', lastUpdateDateTimeHuman='$currentDateTime[1]' WHERE curseAddonID=$curseAddonID";
   }else{
-    $query = "INSERT INTO amz_addonsList (curseAddonID, addonName, version, addonURL, lastDownloadID, lastDownloadDateTime, lastDownloadDateTimeHuman, lastUpdateDateTime, lastUpdateDateTimeHuman) VALUES ($curseAddonID, '$addonName', '$currentVersion', '$addonURL', $currentDownloadID, '$lastDownloadDateTime', '$lastDownloadDateTimeHuman', '$lastDownloadDateTime', '$lastDownloadDateTimeHuman')";
+    $query = "INSERT INTO amz_addonsList (curseAddonID, addonName, version, addonURL, lastDownloadID, lastDownloadDateTime, lastDownloadDateTimeHuman, lastUpdateDateTime, lastUpdateDateTimeHuman) VALUES ($curseAddonID, '$addonName', '$currentVersion', '$addonURL', $currentDownloadID, '$currentDateTime[0]', '$currentDateTime[1]', '$currentDateTime[0]', '$currentDateTime[1]')";
   }
   $result = mysql_query($query);
   if($debug && !$result) die('Invalid query: ' . mysql_error());
-  if(!$result) return false;
   return true;
 }
 
@@ -214,29 +282,19 @@ function deleteAddon($curseAddonID){
 	return true;
 }
 
-function newParseXML($data){
-  global $currentDownloadID;
-  function contents($parser, $data){
-    echo $data."<br />";
-  }
-  function startTag($parser, $tag, $attribs){
-    global $currentDownloadID;
-    if($tag == "FILE"){
-      if (is_array($attribs)) {
-        while(list($key,$val) = each($attribs)) {
-          if($key == "ID") $currentDownloadID = $val;
-        }
-      }
-    }
-  }
-  function endTag($parser, $tag){
-  }
-  $xml_parser = xml_parser_create();
-  xml_set_element_handler($xml_parser, "startTag", "endTag");
-  xml_set_character_data_handler($xml_parser, "contents");
-  if(!(xml_parse($xml_parser, $data))){
-    die("Error on line " . xml_get_current_line_number($xml_parser));
-  }
-  xml_parser_free($xml_parser);
+function oldParseXML($xml){
+  if(!isset($xml)) return false;
+  global $debug, $lastDownloadDateTime, $lastDownloadDateTimeHuman, $addonName, $zipURL, $addonURL, $currentVersion, $currentDownloadID;
+  //$line = explode("<name>",$xml);
+  ///// YOU WERE HERE
+  //die(print_r($line));
+  $addonName = addslashes(trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a -m 1 -A 1 name | tail -1')));
+  $zipURL = trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a -B 2 date | grep zip | tail -1'));
+  $addonURL = trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a -m 1 aspx'));
+  $currentVersion = trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a -A 2 \'file id\' | tail -1'));
+  $currentDownloadID = trim(shell_exec('cat '.$xml.' | tr -s \'><\' \'\n\' | grep -a \'file id\' | tail -1 | awk -F\'"\' \'{print $2}\''));
+  unlink($xml);
+  return true;
 }
+
 ?>

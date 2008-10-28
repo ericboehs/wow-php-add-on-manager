@@ -20,13 +20,9 @@ if($_POST['formSubmitted']){
 				$curseAddonID = trim($checkRow['curseAddonID']);
 				$addonName = trim($checkRow['addonName']);
 			}
-			if(updateNeeded($curseAddonID)){
-				if(updateAddon($curseAddonID)){
-				  while(!checkForUpdateCompletion($curseAddonID)) sleep(2);
-				}else{
-					die(stripslashes($addonName)." could not be added.");
-				}
-			}
+			updateAddon($curseAddonID)
+			while(!checkForUpdateCompletion($curseAddonID)) sleep(2);
+
 			if($_POST['onWindows'] == "on"){
 			  shell_exec('cd "cachedZips/'.$row['addonName'].'.dir" && zip -r "../../customZips/'.$filename.'" * && cd ../..');
 			}else{

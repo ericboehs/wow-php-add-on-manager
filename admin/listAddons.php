@@ -5,27 +5,23 @@ require($baseURL.'functions.php');
 require($baseURL.'config.php');
 $debug = 0;
 if($_POST['formSubmitted'] == "true" || ((isset($_GET['id']) && is_numeric($_GET['id'])) || isset($_GET['url']))){
-	if(isset($_GET['url'])) $curseAddonID = getIdFromURL($_GET['url']);
-	if($_POST['formSubmitted'] == "true") $curseAddonID = trim($_POST['curseAddonID']);
-	if(isset($_GET['id'])) $curseAddonID = trim($_GET['id']);
-	if(isset($_GET['deleteAddon']) && $_GET['deleteAddon']) $deleteAddon = true;
-	if($deleteAddon){
-		if(deleteAddon($curseAddonID)){
-			$_SESSION['message'] = "Deleted Addon.";
-		}else{
-			$_SESSION['message'] = "Deletting Addon failed.";
-		}
-	}else{
-		if(updateNeeded($curseAddonID)){
-			if(updateAddon($curseAddonID)){
-			  $_SESSION['message'] =  stripslashes($addonName)." was updated.";
-			}else{
-				$_SESSION['message'] =  stripslashes($addonName)." could not be updated.";
-			}
-		}else{
-			$_SESSION['message'] =  stripslashes($addonName)." is up to date as of ".$lastDownloadDateTimeHuman.".";
-		}
-	}
+  if(isset($_GET['url'])) $curseAddonID = getIdFromURL($_GET['url']);
+  if($_POST['formSubmitted'] == "true") $curseAddonID = trim($_POST['curseAddonID']);
+  if(isset($_GET['id'])) $curseAddonID = trim($_GET['id']);
+  if(isset($_GET['deleteAddon']) && $_GET['deleteAddon']) $deleteAddon = true;
+  if($deleteAddon){
+    if(deleteAddon($curseAddonID)){
+      $_SESSION['message'] = "Deleted Addon.";
+    }else{
+      $_SESSION['message'] = "Deletting Addon failed.";
+    }
+  }else{
+    if(updateAddon($curseAddonID)){
+      $_SESSION['message'] =  stripslashes($addonName)." was updated.";
+    }else{
+      $_SESSION['message'] =  stripslashes($addonName)." is up to date as of ".$currentDateTime[1].".";
+    }
+  }
 }
 $orderBy = "addonName";
 $orderDir = "asc";
