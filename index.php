@@ -20,7 +20,7 @@ if($_POST['formSubmitted']){
 				$curseAddonID = trim($checkRow['curseAddonID']);
 				$addonName = trim($checkRow['addonName']);
 			}
-			updateAddon($curseAddonID)
+			updateAddon($curseAddonID);
 			while(!checkForUpdateCompletion($curseAddonID)) sleep(2);
 
 			if($_POST['onWindows'] == "on"){
