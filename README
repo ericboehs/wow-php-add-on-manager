@@ -4,7 +4,7 @@ Installation:
 1. Edit the "config.php.example" and save it as "config.php".
 2. Navigate to the install directory with your web browser.
 3. Remove the install directory.
-4. Add a cronjob to run the dailyUpdater.php everyday.  (This step isn't required, it will just speed up the zip file creation process and clean up the customZips directory, which will get large over time).
+4. Add a cronjob to run the dailyUpdater.php everyday.  (This step isn't required, it will just speed up the zip file creation process and clean up the customZips directory, which will get large over time). Note: This only works with PHP5 because of file_put_contents().  Check with your server admin to see if you have php5-cli installed.
 5. Add some addons!
 
 Adding Addons:
