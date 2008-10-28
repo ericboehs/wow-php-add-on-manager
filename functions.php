@@ -8,6 +8,8 @@ TODO:
 -Fix it to die gracefully if curse isn't providing the xml correctly
 -Updated blah, but blah was missing
 -Use the server's tmp directory
+-return stuff in arrays
+-Improve session messaging system
 */
 class ParseXML{
   function GetChildren($vals, &$i) {
@@ -205,7 +207,8 @@ function md5Addon($addonName){
   $md5Location = $baseURL.'cachedZips/'.$addonName.'.dir/versions/'.$addonName.'.md5';
   $md5Directory = $baseURL.'cachedZips/'.$addonName.'.dir/versions/';
   if(!file_exists($md5Directory)) mkdir($md5Directory);
-  //file_put_contents($md5Location, $md5Hash);
+  //die('Dir: '.$md5Directory . ' | Loc: ' . $md5Location . ' | Hash: ' . $md5Hash);
+  file_put_contents($md5Location, $md5Hash);
   return;
 }
 
@@ -269,14 +272,15 @@ function deleteAddon($curseAddonID){
 	if(!result) return false;
 	while($row = mysql_fetch_array($result, MYSQL_ASSOC)){
 	  $addonName = trim($row['addonName']);
+
 	}
-	if(file_exists("$baseURLcachedZips/$addonName.dir")){
+	if(file_exists($baseURL.'cachedZips/'.$addonName.'.dir')){
 	  shell_exec('rm -rf "'.$baseURL.'cachedZips/'.$addonName.'.dir"');
 	}
-	if(file_exists("$baseURLcachedZips/$addonName.zip")){
+	if(file_exists($baseURL.'cachedZips/'.$addonName.'.zip')){
 	  shell_exec('rm -rf "'.$baseURL.'cachedZips/'.$addonName.'.zip"');
 	}
-	$query = "DELETE FROM amz_addonsList WHERE id=".$curseAddonID;
+	$query = "DELETE FROM amz_addonsList WHERE curseAddonID=".$curseAddonID;
 	$deleteResult = mysql_query($query);
 	if(!$deleteResult) return false;
 	return true;

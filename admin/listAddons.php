@@ -11,9 +11,9 @@ if($_POST['formSubmitted'] == "true" || ((isset($_GET['id']) && is_numeric($_GET
   if(isset($_GET['deleteAddon']) && $_GET['deleteAddon']) $deleteAddon = true;
   if($deleteAddon){
     if(deleteAddon($curseAddonID)){
-      $_SESSION['message'] = "Deleted Addon.";
+      $_SESSION['message'] = "The Addon $addonName has been deleted.";
     }else{
-      $_SESSION['message'] = "Deletting Addon failed.";
+      $_SESSION['message'] = "Deleting Addon failed.";
     }
   }else{
     if(updateAddon($curseAddonID)){
@@ -84,7 +84,7 @@ if($numRows != 0){
       }
       ////
       echo "<td align=\"center\"><a href=\"../cachedZips/".$row['addonName'].".zip\"><img src=\"".$baseURL."images/download.gif\" width=\"25\" height=\"25\" border=\"0\"></a></td>" .
-          "<td align=\"center\"><a href=\"".$_SERVER['PHP_SELF']."?deleteAddon=true&id=".$row['id']."&sort=".$orderBy."&direction=".$orderDir."\"><img src=\"".$baseURL."images/delete.png\" width=\"25\" height=\"25\" border=\"0\"></a></td>" .
+          "<td align=\"center\"><a href=\"".$_SERVER['PHP_SELF']."?deleteAddon=true&id=".$row['curseAddonID']."&sort=".$orderBy."&direction=".$orderDir."\"><img src=\"".$baseURL."images/delete.png\" width=\"25\" height=\"25\" border=\"0\"></a></td>" .
            "</tr>";
 	$i++;
     }
