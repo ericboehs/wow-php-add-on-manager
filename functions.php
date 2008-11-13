@@ -193,6 +193,8 @@ function getVersionsFromZip($userZipLocation, $userExtractLocation){
     if($addonHashes[$i] != file_get_contents($baseURL.'cachedZips/'.$thisAddonName.'.dir/versions/'.$thisAddonName.'.md5')){
       $updated = true;
       shell_exec('cd "'.$baseURL.'" && cd "cachedZips/'.$thisAddonName.'.dir" && zip -r "../../customZips/'.$zipFilename.'" * && cd ../..');
+    }else {
+      shell_exec('cd "'.$baseURL.'" && cd "cachedZips/'.$thisAddonName.'.dir" && zip -r "../../customZips/'.$zipFilename.'" versions && cd ../..');
     }
     $i++;
   }
